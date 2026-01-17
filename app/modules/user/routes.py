@@ -1,49 +1,61 @@
-from fastapi import APIRouter
-from app.modules.user.schemas import UserCreateSchema
-from app.modules.user.service import create_user, get_dashboard
 from fastapi import APIRouter, Depends
+from app.modules.user.schemas import (
+    CheckUserRequest,
+    SetPinRequest,
+    LoginPinRequest,
+)
+from app.modules.user.service import (
+    check_user,
+    verify_otp_registration,
+    set_pin,
+    login_with_pin,
+    logout,
+)
 from app.api.deps import get_current_user
-from pydantic import BaseModel
-from app.modules.user.otp_service import send_otp
-from app.modules.user.service import verify_otp_and_login
-from app.utils.mongo import serialize_mongo
+from app.modules.user.schemas import VerifyOtpRequest
+
+from app.modules.user.schemas import SendOtpRequest
+from app.modules.user.service import send_otp_registration
 
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class SendOTPRequest(BaseModel):
-    phone: str
+@router.post("/otp/send")
+async def send_otp_api(payload: SendOtpRequest):
+    await send_otp_registration(payload.phone)
+    return {"otp_sent": True}
 
 
-class VerifyOTPRequest(BaseModel):
-    phone: str
-    otp: str
+@router.post("/check-user")
+async def check_user_api(payload: CheckUserRequest):
+    return await check_user(payload.phone)
 
 
-@router.post("/")
-async def register_user(payload: UserCreateSchema):
-    user_id = await create_user(payload.model_dump())
-    return {"user_id": str(user_id)}
+@router.post("/otp/verify")
+async def verify_otp_api(payload: VerifyOtpRequest):
+    token = await verify_otp_registration(payload.phone, payload.otp)
+    return {"registration_token": token}
 
 
-@router.get("/me")
-async def my_profile(current_user=Depends(get_current_user)):
-    return serialize_mongo(current_user)
-
-
-@router.get("/me/dashboard")
-async def my_dashboard(current_user=Depends(get_current_user)):
-    return await get_dashboard(str(current_user["_id"]))
-
-
-@router.post("/auth/otp/send")
-async def send_otp_api(payload: SendOTPRequest):
-    await send_otp(payload.phone)
-    return {"message": "OTP sent successfully"}
-
-
-@router.post("/auth/otp/verify")
-async def verify_otp_api(payload: VerifyOTPRequest):
-    token = await verify_otp_and_login(payload.phone, payload.otp)
+@router.post("/set-pin")
+async def set_pin_api(
+    payload: SetPinRequest,
+    current=Depends(get_current_user),
+):
+    user, _ = current
+    token = await set_pin(str(user["_id"]), payload.pin)
     return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/login-pin")
+async def login_pin_api(payload: LoginPinRequest):
+    token = await login_with_pin(payload.phone, payload.pin)
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+async def logout_api(current=Depends(get_current_user)):
+    _, payload = current
+    await logout(payload)
+    return {"logged_out": True}

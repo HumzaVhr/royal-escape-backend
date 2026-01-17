@@ -2,15 +2,6 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 
-class SendOTPRequest(BaseModel):
-    phone: str
-
-
-class VerifyOTPRequest(BaseModel):
-    phone: str
-    otp: str
-
-
 class AddressSchema(BaseModel):
     line1: str
     city: str
@@ -33,3 +24,25 @@ class DashboardSchema(BaseModel):
     balance: float
     total_entries: int
     total_winnings: float
+
+
+class CheckUserRequest(BaseModel):
+    phone: str
+
+
+class SetPinRequest(BaseModel):
+    pin: str
+
+
+class LoginPinRequest(BaseModel):
+    phone: str
+    pin: str
+
+
+class VerifyOtpRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+class SendOtpRequest(BaseModel):
+    phone: str
